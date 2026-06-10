@@ -1,0 +1,52 @@
+# اسم ورک‌فلو که توی تب Actions می‌بینی
+name: Custom Windows Build (Remotik)
+
+# کی اجرا بشه؟ وقتی دکمه Run workflow رو بزنی
+on:
+  workflow_dispatch:
+
+# کارهایی که باید انجام بشه
+jobs:
+  # اسم این کار خاص (مثلاً ساخت روی ویندوز)
+  build-windows:
+    # محیط اجرا: آخرین نسخه ویندوز. برای مشکلات رم، این خط حیاتیه!
+    runs-on: windows-latest
+    
+    # قدم‌های این کار
+    steps:
+      # قدم 1: کلون کردن کد (شامل فورک تو و زیرماژول‌هاش)
+      - name: Checkout code with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'  # <-- کلید طلایی برای حل مشکل زیرماژول‌ها
+          fetch-depth: 1           # <-- فقط آخرین commit رو میاره تا فضا ذخیره بشه
+
+      # قدم 2: نصب Rust
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      # قدم 3: کش کردن وابستگی‌ها (برای ساخت‌های بعدی خیلی به درد می‌خوره)
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      # قدم 4: دستور جادویی ساخت! اینجا از `--target` استفاده نکردیم تا روی معمولی‌ترین حالت متمرکز بشه
+      - name: Build RustDesk Client
+        run: python3 build.py --portable --hwcodec --flutter
+
+      # قدم 5: آپلود فایل نهایی (تا بشه دانلودش کرد)
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Remotik-Windows
+          path: target/release/rustdesk.exe
