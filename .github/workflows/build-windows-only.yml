@@ -17,6 +17,9 @@ jobs:
       - name: Install dependencies and build
         shell: bash
         run: |
+          # حذف پوشه قدیمی vcpkg اگر وجود دارد
+          rm -rf C:/vcpkg
+          
           # نصب vcpkg
           git clone https://github.com/Microsoft/vcpkg.git C:/vcpkg
           cd C:/vcpkg
