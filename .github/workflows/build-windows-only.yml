@@ -14,37 +14,26 @@ jobs:
           submodules: 'recursive'
           fetch-depth: 1
 
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-
-      - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgDirectory: 'C:/vcpkg'
-          
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-            C:/vcpkg
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Build RustDesk Client
+      - name: Install dependencies and build
+        shell: bash
         run: |
-          # تنظیم متغیر محیطی VCPKG_ROOT
-          echo "VCPKG_ROOT=C:/vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "VCPKG_ROOT=C:/vcpkg" >> $env:GITHUB_PATH
+          # نصب vcpkg
+          git clone https://github.com/Microsoft/vcpkg.git C:/vcpkg
+          cd C:/vcpkg
+          ./bootstrap-vcpkg.bat
           
-          # حذف --locked از فایل build.py
-          (Get-Content build.py) -replace '--locked', '' | Set-Content build.py
+          # نصب کتابخانه‌های مورد نیاز
+          ./vcpkg install opus:x64-windows
+          ./vcpkg install libvpx:x64-windows
+          ./vcpkg install x264:x64-windows
+          cd -
+          
+          # تنظیم متغیرهای محیطی
+          export VCPKG_ROOT="C:/vcpkg"
+          export VCPKG_DEFAULT_TRIPLET=x64-windows
+          
+          # حذف --locked
+          sed -i 's/--locked//g' build.py
           
           # کامپایل
           python3 build.py --portable --flutter
