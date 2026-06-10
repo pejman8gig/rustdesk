@@ -14,29 +14,49 @@ jobs:
           submodules: 'recursive'
           fetch-depth: 1
 
-      - name: Install dependencies and build
-        shell: bash
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          target: x86_64-pc-windows-msvc
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: '${{ runner.workspace }}/vcpkg'
+          vcpkgGitCommitId: '120deac3062162151622ca4860575a33844ba10b'
+          
+      - name: Install system dependencies
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: '${{ runner.workspace }}/vcpkg'
+          vcpkgTriplet: x64-windows
+          vcpkgJsonConfig: '${{ github.workspace }}/vcpkg.json'
+          runVcpkgInstall: true
+
+      - name: Set environment variables
         run: |
-          # حذف پوشه قدیمی vcpkg اگر وجود دارد
-          rm -rf C:/vcpkg
-          
-          # نصب vcpkg
-          git clone https://github.com/Microsoft/vcpkg.git C:/vcpkg
-          cd C:/vcpkg
-          ./bootstrap-vcpkg.bat
-          
-          # نصب کتابخانه‌های مورد نیاز
-          ./vcpkg install opus:x64-windows
-          ./vcpkg install libvpx:x64-windows
-          ./vcpkg install x264:x64-windows
-          cd -
-          
-          # تنظیم متغیرهای محیطی
-          export VCPKG_ROOT="C:/vcpkg"
-          export VCPKG_DEFAULT_TRIPLET=x64-windows
-          
-          # حذف --locked
-          sed -i 's/--locked//g' build.py
+          echo "VCPKG_ROOT=${{ runner.workspace }}/vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "VCPKG_ROOT=${{ runner.workspace }}/vcpkg" >> $env:GITHUB_PATH
+          echo "VCPKGRS_DYNAMIC=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            ${{ runner.workspace }}/vcpkg
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build RustDesk Client
+        run: |
+          # حذف --locked از فایل build.py
+          (Get-Content build.py) -replace '--locked', '' | Set-Content build.py
           
           # کامپایل
           python3 build.py --portable --flutter
